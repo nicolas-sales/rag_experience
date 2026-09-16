@@ -1,0 +1,7 @@
+ipykernel
+
+PyMuPDF
+Pydantic
+
+pytest
+ruff
