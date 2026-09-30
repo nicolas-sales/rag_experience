@@ -5,3 +5,11 @@ Pydantic
 
 pytest
 ruff
+
+openai
+langchain-openai
+
+chromadb
+langchain-chroma
+
+python-dotenv
