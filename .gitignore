@@ -2,3 +2,6 @@ venvrag
 ./venvrag
 
 .env 
+
+notebooks/qdrant_db/
+notebooks/chroma_db/

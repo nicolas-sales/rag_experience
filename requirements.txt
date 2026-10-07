@@ -11,5 +11,7 @@ langchain-openai
 
 chromadb
 langchain-chroma
+qdrant-client 
+langchain-qdrant
 
 python-dotenv
