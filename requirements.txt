@@ -15,3 +15,5 @@ qdrant-client
 langchain-qdrant
 
 python-dotenv
+
+streamlit
