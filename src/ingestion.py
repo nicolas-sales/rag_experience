@@ -378,14 +378,14 @@ def main():
             pages_document=pages_document
         )
 
-        # Extraction des images
+        # Étape 4 : Extraction des images
         total_image_occurrences = extract_images(
             doc=doc,
             pages_document=pages_document,
             document_id=document_id
         )
 
-        # Création de la banque d'images
+        # Étape 5 : Création de la banque d'images
         image_bank = create_image_bank(
             doc=doc,
             pages_document=pages_document,
@@ -395,17 +395,20 @@ def main():
         # Étape 6 : tri des éléments
         sort_page_elements(pages_document)
 
+        # Étape 7 : classification CLIP
+        clip_calls = classify_images(
+            pages_document,
+            image_bank
+        )
 
-        print("\n=== ÉLÉMENTS TRIÉS — PAGE 16 ===")
+        # Étape 8 : analyse DePlot
+        deplot_calls = run_deplot(pages_document)
 
-        for element_id, element in enumerate(pages_document[15]["elements"][:10]):
+        # Étape 9 : validation et parsing
+        finalize_deplot(pages_document)
 
-            print(
-                f"ID : {element_id} | "
-                f"Type : {element['type']} | "
-                f"Position : {element['bbox'][:2]}"
-            )
 
+     
 
 
 if __name__=="__main__":

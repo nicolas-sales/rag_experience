@@ -2,6 +2,9 @@
 from pathlib import Path
 import time
 
+from src.image_cache import load_image_cache, save_image_cache, get_image_hash
+
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 CANDIDATE_LABELS = [
@@ -31,6 +34,8 @@ def classify_images(pages_document, image_bank):
     from transformers import pipeline
 
     loading_start = time.perf_counter()
+
+    cache = load_image_cache()
 
     image_classifier = pipeline(
         task="zero-shot-image-classification",
@@ -76,6 +81,22 @@ def classify_images(pages_document, image_bank):
             # Inférence CLIP
             image_start = time.perf_counter()
 
+            image_hash = get_image_hash(element["storage_path"])
+
+            clip_cache_key = (
+                f"openai/clip-vit-base-patch32:"
+                f"{DEPLOT_MIN_SCORE}:"
+                f"{'|'.join(CANDIDATE_LABELS)}:"
+                f"{image_hash}"
+            )
+
+            if clip_cache_key in cache["clip"]:
+
+                element.update(cache["clip"][clip_cache_key])
+
+                print("CLIP cache hit:", element["image_id"])
+                continue
+
             results = image_classifier(
                 str(image_path),
                 candidate_labels=CANDIDATE_LABELS
@@ -85,6 +106,24 @@ def classify_images(pages_document, image_bank):
 
             clip_calls += 1
             clip_inference_duration += image_duration
+
+            cache["clip"][clip_cache_key] = {
+                key: element[key]
+                for key in (
+                    "image_category",
+                    "classification_score",
+                    "classification_results",
+                    "deplot_candidate_type",
+                    "deplot_score",
+                    "non_deplot_type",
+                    "non_deplot_score",
+                    "chart_decision",
+                    "is_chart",
+                    "clip_inference_time"
+                )
+            }
+
+            save_image_cache(cache)
 
             best_result = results[0]
 
@@ -198,6 +237,8 @@ def classify_images(pages_document, image_bank):
 
 def run_deplot(pages_document):
 
+    cache = load_image_cache()
+
     from transformers import (
         Pix2StructProcessor,
         Pix2StructForConditionalGeneration
@@ -273,6 +314,23 @@ def run_deplot(pages_document):
             print("Error loading image:", element["image_id"], error)
             continue
 
+        image_hash = get_image_hash(element["storage_path"])
+
+        deplot_cache_key = (
+            f"google/deplot:max_new_tokens=256:"
+            f"{image_hash}"
+        )
+
+        if deplot_cache_key in cache["deplot"]:
+
+            element["deplot_raw"] = cache["deplot"][deplot_cache_key]
+            element["deplot_from_cache"] = True
+
+            deplot_cache_hits += 1
+
+            print("DePlot cache hit:", element["image_id"])
+            continue
+
         model_inputs = deplot_processor(
             images=chart_image,
             text="Generate underlying data table of the figure below:",
@@ -289,6 +347,10 @@ def run_deplot(pages_document):
             predictions[0],
             skip_special_tokens=True
         )
+
+        cache["deplot"][deplot_cache_key] = raw_chart_table
+
+        save_image_cache(cache)
 
         chart_duration = time.perf_counter() - chart_start
 
