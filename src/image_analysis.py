@@ -37,11 +37,13 @@ def classify_images(pages_document, image_bank):
 
     cache = load_image_cache()
 
-    image_classifier = pipeline(
-        task="zero-shot-image-classification",
-        model="openai/clip-vit-base-patch32",
-        device=-1
-    )
+    image_classifier = None
+
+    #image_classifier = pipeline(
+        #task="zero-shot-image-classification",
+        #model="openai/clip-vit-base-patch32",
+        #device=-1
+    #)
 
     print(
         "CLIP loading time:",
@@ -96,6 +98,26 @@ def classify_images(pages_document, image_bank):
 
                 print("CLIP cache hit:", element["image_id"])
                 continue
+
+            # Charger CLIP uniquement si une image
+            # n'est pas présente dans le cache
+            if image_classifier is None:
+
+                from transformers import pipeline
+
+                loading_start = time.perf_counter()
+
+                image_classifier = pipeline(
+                    task="zero-shot-image-classification",
+                    model="openai/clip-vit-base-patch32",
+                    device=-1
+                )
+
+                print(
+                    "CLIP loading time:",
+                    round(time.perf_counter() - loading_start, 2),
+                    "seconds"
+                )
 
             results = image_classifier(
                 str(image_path),
@@ -237,8 +259,6 @@ def classify_images(pages_document, image_bank):
 
 def run_deplot(pages_document):
 
-    cache = load_image_cache()
-
     from transformers import (
         Pix2StructProcessor,
         Pix2StructForConditionalGeneration
@@ -262,23 +282,28 @@ def run_deplot(pages_document):
     if not deplot_candidates:
         return 0
 
-    loading_start = time.perf_counter()
+    cache = load_image_cache()
 
-    deplot_processor = Pix2StructProcessor.from_pretrained(
-        "google/deplot"
-    )
+    deplot_processor = None
+    deplot_model = None
 
-    deplot_model = Pix2StructForConditionalGeneration.from_pretrained(
-        "google/deplot"
-    )
+    #loading_start = time.perf_counter()
 
-    deplot_model.eval()
+    #deplot_processor = Pix2StructProcessor.from_pretrained(
+        #"google/deplot"
+    #)
 
-    print(
-        "DePlot loading time:",
-        round(time.perf_counter() - loading_start, 2),
-        "seconds"
-    )
+    #deplot_model = Pix2StructForConditionalGeneration.from_pretrained(
+        #"google/deplot"
+    #)
+
+    #deplot_model.eval()
+
+    #print(
+        #"DePlot loading time:",
+        #"round(time.perf_counter() - loading_start, 2),
+        #"seconds"
+    #)
 
     deplot_cache = {}
 
@@ -330,6 +355,34 @@ def run_deplot(pages_document):
 
             print("DePlot cache hit:", element["image_id"])
             continue
+
+        # Charger DePlot uniquement lors du premier cache miss
+        if deplot_model is None:
+
+            from transformers import (
+                Pix2StructProcessor,
+                Pix2StructForConditionalGeneration
+            )
+
+            loading_start = time.perf_counter()
+
+            deplot_processor = Pix2StructProcessor.from_pretrained(
+                "google/deplot"
+            )
+
+            deplot_model = (
+                Pix2StructForConditionalGeneration.from_pretrained(
+                    "google/deplot"
+                )
+            )
+
+            deplot_model.eval()
+
+            print(
+                "DePlot loading time:",
+                round(time.perf_counter() - loading_start, 2),
+                "seconds"
+            )
 
         model_inputs = deplot_processor(
             images=chart_image,
