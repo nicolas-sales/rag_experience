@@ -1,4 +1,3 @@
-
 import streamlit as st
 from openai import OpenAI
 
@@ -12,7 +11,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from src.retrieval import create_retriever
 from src.rag import rag_answer
 from src.pdf_viewer import prepare_pdf_source
-from src.source_locator import find_relevant_bbox
+from src.source_locator import get_source_bboxes
 
 
 # --------------------------------------------------
@@ -121,17 +120,23 @@ if "messages" not in st.session_state:
 
 
 # --------------------------------------------------
-# Fonction : afficher une source PDF
+# Fonction : afficher les sources PDF
 # --------------------------------------------------
 
-def display_pdf_source(pdf_url: str, page_number: int):
-    
-    st.markdown(
-        f'<a href="{pdf_url}" target="_blank" rel="noopener noreferrer">'
-        f'📄 Voir la source — page {page_number} ↗'
-        f'</a>',
-        unsafe_allow_html=True
-    )
+def display_pdf_sources(source_links: list):
+
+    for source in source_links:
+
+        pdf_url = source["url"]
+        page_number = source["page"]
+
+        st.markdown(
+            f'<a href="{pdf_url}" target="_blank" '
+            f'rel="noopener noreferrer">'
+            f'📄 Voir la source — page {page_number} ↗'
+            f'</a>',
+            unsafe_allow_html=True
+        )
 
 
 # --------------------------------------------------
@@ -148,11 +153,9 @@ for index, message in enumerate(st.session_state["messages"]):
 
         if message["role"] == "assistant":
 
-            source_url = message.get("source_url")
-            source_page = message.get("source_page")
+            source_links = message.get("source_links", [])
 
-            if source_url and source_page is not None:
-                display_pdf_source(source_url, source_page)
+            display_pdf_sources(source_links)
 
 
 # --------------------------------------------------
@@ -184,57 +187,77 @@ if question:
 
         with st.spinner("Recherche et génération de la réponse..."):
 
-            # 1. Recherche Qdrant
-            retrieved_documents = retriever.invoke(question)
+            # 1. Une seule recherche Qdrant, effectuée
+            #    directement dans rag_answer()
+            #
+            #    GPT retourne :
+            #    - la réponse
+            #    - les pages sources
+            #    - les identifiants des éléments
 
-            source_page = None
-            source_url = None
-
-            if retrieved_documents:
-
-                # 2. Page la plus pertinente
-                source_page = retrieved_documents[0].metadata.get("page")
-
-                if source_page is not None:
-
-                    # 3. Identification automatique de la zone pertinente
-                    bbox = find_relevant_bbox(
-                        question=question,
-                        page_number=source_page,
-                        api_key=st.session_state["openai_api_key"]
-                    )
-
-                    print("Page source :", source_page)
-                    print("BBOX sélectionnée :", bbox)
-
-                    # 4. Génération du PDF annoté
-                    source_url = prepare_pdf_source(
-                        page_number=source_page,
-                        bbox=bbox
-                    )
-
-            # 5. Génération de la réponse GPT-5-mini
-            answer = rag_answer(
+            result = rag_answer(
                 question=question,
                 retriever=retriever,
                 api_key=st.session_state["openai_api_key"]
             )
 
-        # 6. Enregistrer la réponse et son lien PDF
+            answer = result["answer"]
+            sources = result["sources"]
+
+            print("=== SOURCES IDENTIFIÉES ===")
+            print(sources)
+
+            # 2. Regrouper les éléments par page
+            sources_by_page = {}
+
+            for source in sources:
+
+                page_number = source["page"]
+                element_id = source["element_id"]
+
+                sources_by_page.setdefault(
+                    page_number, []
+                ).append(element_id)
+
+            # 3. Récupérer les bbox et créer les PDF annotés
+            source_links = []
+
+            for page_number, element_ids in sources_by_page.items():
+
+                bboxes = get_source_bboxes(
+                    page_number=page_number,
+                    element_ids=element_ids
+                )
+
+                print("Page source :", page_number)
+                print("BBOX sélectionnées :", bboxes)
+
+                if not bboxes:
+                    continue
+
+                source_url = prepare_pdf_source(
+                    page_number=page_number,
+                    bboxes=bboxes
+                )
+
+                source_links.append({
+                    "page": page_number,
+                    "url": source_url
+                })
+
+        # 4. Enregistrer la réponse et ses liens PDF
         st.session_state["messages"].append({
             "role": "assistant",
             "content": answer,
-            "source_page": source_page,
-            "source_url": source_url
+            "source_links": source_links
         })
 
-        # 7. Afficher la réponse
+        # 5. Afficher la réponse
         with st.chat_message("assistant"):
 
             st.markdown(answer)
 
-            if source_url is not None:
-                display_pdf_source(source_url, source_page)
+            display_pdf_sources(source_links)
 
     except Exception as e:
         st.error(f"Erreur lors de la génération : {e}")

@@ -5,3 +5,7 @@ venvrag
 
 notebooks/qdrant_db/
 notebooks/chroma_db/
+
+image_bank
+data
+

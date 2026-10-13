@@ -1,115 +1,56 @@
 import json
 from pathlib import Path
 
-import numpy as np
-from langchain_openai import OpenAIEmbeddings
-
-
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-
-# Lien où est stocké le fichier json savegardé grâce au notebook
-SOURCE_ELEMENTS_PATH = (
-    PROJECT_ROOT
-    / "data"
-    / "processed"
-    / "source_elements.json"
-)
+SOURCE_ELEMENTS_PATH = PROJECT_ROOT / "data" / "processed" / "source_elements.json"
 
 
 def load_source_elements():
-    with open(SOURCE_ELEMENTS_PATH, encoding="utf-8") as f: # encoding="utf-8" -> prise en charge des accents
-        return json.load(f) # transformation en objet python (dictionnaire contenant des listes)
+    with open(SOURCE_ELEMENTS_PATH, encoding="utf-8") as f:
+        return json.load(f)
 
 
-def get_element_content(element):
-    element_type = element.get("type")
+def get_page_elements(page_number: int):
+    data = load_source_elements()
+    elements = data.get(str(page_number), [])
 
-    #Si l'élément est une image, on récupère le texte produit par DePlot
-    if element_type == "image":
-        return element.get("deplot_clean") or ""
+    result = []
 
-    # Pour un texte ou un tableau, on récupère la représentation textuelle stockée dans le JSON
-    if element_type in ("text", "table"):
-        return element.get("text") or ""
+    for element_id, element in enumerate(elements):
+        content = (
+            element.get("deplot_clean")
+            if element.get("type") == "image"
+            else element.get("text")
+        )
 
-    return ""
-
-
-def find_relevant_bbox(
-    question: str,
-    page_number: int,
-    api_key: str
-):
-    """
-    Sélectionne automatiquement la zone la plus pertinente
-    sur une page PDF.
-
-    Retourne une bbox [x0, y0, x1, y1] ou None.
-    """
-
-    # Chargement des données json
-    source_data = load_source_elements()
-
-    # Récupération des éléments de la page sélectionnée
-    elements = source_data.get(str(page_number), []) # str car le json contient par exemple "14" et non un nombre entier
-
-    candidates = []
-
-    for element in elements:
-
-        content = get_element_content(element)
-        bbox = element.get("bbox")
-
-        if not content.strip() or not bbox:
+        if not content or not content.strip():
             continue
 
-        candidates.append({
-            "content": content,
-            "bbox": bbox,
-            "type": element.get("type")
+        result.append({
+            "element_id": element_id,
+            "type": element.get("type"),
+            "content": content
         })
 
-    if not candidates:
-        return None
+    return result
 
-    embeddings = OpenAIEmbeddings(
-        model="text-embedding-ada-002",
-        api_key=api_key
-    )
 
-    texts = [candidate["content"] for candidate in candidates]
+def get_source_bboxes(page_number: int, element_ids: list[int]):
+    data = load_source_elements()
+    elements = data.get(str(page_number), [])
 
-    question_vector = np.array(
-        embeddings.embed_query(question) # np.array(...) transforme le résultat en tableau NumPy pour les calculs
-    )
+    bboxes = []
 
-    element_vectors = np.array(
-        embeddings.embed_documents(texts)
-    )
+    for element_id in element_ids:
+        if not isinstance(element_id, int):
+            continue
 
-    # Calcul de la longueur du vecteur de la question
-    question_norm = np.linalg.norm(question_vector)
+        if not 0 <= element_id < len(elements):
+            continue
 
-    # Calcul de la longueur de chaque vecteur candidat
-    element_norms = np.linalg.norm(element_vectors, axis=1) # axis=1 signifie qu'on effectue le calcul ligne par ligne : chaque ligne représente un élément
+        bbox = elements[element_id].get("bbox")
 
-    # Calcul des similarités
-    similarities = (
-        element_vectors @ question_vector # @ est l'opérateur de multiplication matricielle de Python
-    ) / (
-        element_norms * question_norm + 1e-12
-    )
+        if bbox and len(bbox) == 4:
+            bboxes.append(bbox)
 
-    best_index = int(np.argmax(similarities))
-
-    best_candidate = candidates[best_index]
-
-    print("=== SOURCE LOCATOR ===")
-    print("Question :", question)
-    print("Page :", page_number)
-    print("Type sélectionné :", best_candidate["type"])
-    print("Contenu :", best_candidate["content"][:200])
-    print("Score :", float(similarities[best_index]))
-    print("BBOX :", best_candidate["bbox"])
-
-    return best_candidate["bbox"]
+    return bboxes
