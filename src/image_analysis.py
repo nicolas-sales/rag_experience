@@ -129,24 +129,6 @@ def classify_images(pages_document, image_bank):
             clip_calls += 1
             clip_inference_duration += image_duration
 
-            cache["clip"][clip_cache_key] = {
-                key: element[key]
-                for key in (
-                    "image_category",
-                    "classification_score",
-                    "classification_results",
-                    "deplot_candidate_type",
-                    "deplot_score",
-                    "non_deplot_type",
-                    "non_deplot_score",
-                    "chart_decision",
-                    "is_chart",
-                    "clip_inference_time"
-                )
-            }
-
-            save_image_cache(cache)
-
             best_result = results[0]
 
             element["image_category"] = best_result["label"]
@@ -225,6 +207,27 @@ def classify_images(pages_document, image_bank):
             element["chart_decision"] = chart_decision
             element["is_chart"] = is_chart
             element["clip_inference_time"] = image_duration
+
+            # Sauvegarde CLIP uniquement après avoir rempli tous les champs
+            clip_fields = (
+                "image_category",
+                "classification_score",
+                "classification_results",
+                "deplot_candidate_type",
+                "deplot_score",
+                "non_deplot_type",
+                "non_deplot_score",
+                "chart_decision",
+                "is_chart",
+                "clip_inference_time"
+            )
+
+            cache["clip"][clip_cache_key] = {
+                key: element[key]
+                for key in clip_fields
+            }
+
+            save_image_cache(cache)
 
             print(
                 element["image_id"],

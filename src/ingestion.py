@@ -1,7 +1,11 @@
 from pathlib import Path
 import pymupdf
+import json
 
 from src.image_analysis import classify_images, run_deplot, finalize_deplot
+
+from src.markdown_converter import build_page_markdowns, build_chunks, export_pages_markdown
+
 
 
 # --------------------------------------------------
@@ -334,82 +338,212 @@ def sort_page_elements(pages_document):
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+# --------------------------------------------------
+# Pipeline principal d'ingestion
+# --------------------------------------------------
 
 def main():
 
     document_id = PDF_PATH.stem
 
+    print(f"PDF : {PDF_PATH}")
+
     with pymupdf.open(PDF_PATH) as doc:
 
-        # Étape 1 : initialisation
+        # 1. Initialisation des pages
         pages_document = initialize_pages(
-            doc=doc,
-            document_id=document_id
+            doc,
+            document_id
         )
 
-        # Étape 2 : tableaux
+        # 2. Extraction des tableaux
         total_tables = extract_tables(
-            doc=doc,
-            pages_document=pages_document
+            doc,
+            pages_document
         )
 
-        # Étape 3 : textes
+        # 3. Extraction des textes
         total_text_blocks = extract_text(
-            doc=doc,
-            pages_document=pages_document
+            doc,
+            pages_document
         )
 
-        # Étape 4 : Extraction des images
-        total_image_occurrences = extract_images(
-            doc=doc,
-            pages_document=pages_document,
-            document_id=document_id
-        )
-
-        # Étape 5 : Création de la banque d'images
-        image_bank = create_image_bank(
-            doc=doc,
-            pages_document=pages_document,
-            document_id=document_id
-        )
-
-        # Étape 6 : tri des éléments
-        sort_page_elements(pages_document)
-
-        # Étape 7 : classification CLIP
-        clip_calls = classify_images(
+        # 4. Extraction des images
+        total_images = extract_images(
+            doc,
             pages_document,
-            image_bank
+            document_id
         )
 
-        # Étape 8 : analyse DePlot
-        deplot_calls = run_deplot(pages_document)
+        # 5. Sauvegarde des images
+        image_bank = create_image_bank(
+            doc,
+            pages_document,
+            document_id
+        )
 
-        # Étape 9 : validation et parsing
-        finalize_deplot(pages_document)
+    # 6. Tri des éléments
+    sort_page_elements(pages_document)
+
+    print("Tableaux :", total_tables)
+    print("Blocs de texte :", total_text_blocks)
+    print("Occurrences d'images :", total_images)
+
+    # 7. Classification CLIP
+    clip_calls = classify_images(
+        pages_document,
+        image_bank
+    )
+
+    # 8. Analyse DePlot
+    deplot_calls = run_deplot(
+        pages_document
+    )
+
+    # 9. Validation des résultats DePlot
+    finalize_deplot(pages_document)
+
+    # 10. Conversion Markdown
+    page_markdowns = build_page_markdowns(
+        pages_document
+    )
+
+    # 11. Export Markdown pour inspection
+    markdown_output_path = (
+        PROJECT_ROOT
+        / "data"
+        / "processed"
+        / "pages_markdown.md"
+    )
+
+    export_pages_markdown(
+        page_markdowns,
+        markdown_output_path
+    )
+
+    # 12. Construction des chunks
+    chunks = build_chunks(
+        pages_document=pages_document,
+        page_markdowns=page_markdowns,
+        document_id=document_id,
+        pdf_path=PDF_PATH
+    )
+
+    
+# --------------------------------------------------
+# Export des éléments sources pour le surlignage PDF
+# --------------------------------------------------
+
+    source_elements_v3 = {}
+
+    for page_data in pages_document:
+
+        page_number = page_data["page"]
+
+        source_elements_v3[str(page_number)] = []
+
+        for element in page_data["elements"]:
+
+            source_element = {
+                "type": element["type"],
+                "bbox": element["bbox"]
+            }
+
+            if element["type"] == "text":
+                source_element["content"] = element.get(
+                    "content", ""
+                )
+
+            elif element["type"] == "table":
+                source_element["content"] = (
+                    "Colonnes : "
+                    + str(element.get("columns", []))
+                    + "\nLignes : "
+                    + str(element.get("rows", []))
+                )
+
+            elif element["type"] == "image":
+                source_element["is_chart"] = element.get(
+                    "is_chart", False
+                )
+                source_element["deplot_clean"] = element.get(
+                    "deplot_clean", ""
+                )
+                source_element["image_category"] = element.get(
+                    "image_category", ""
+                )
+
+            source_elements_v3[str(page_number)].append(
+                source_element
+            )
+
+    source_output_path = (
+        PROJECT_ROOT
+        / "data"
+        / "processed"
+        / "source_elements_v3.json"
+    )
+
+    with open(source_output_path, "w", encoding="utf-8") as f:
+        json.dump(
+            source_elements_v3,
+            f,
+            ensure_ascii=False,
+            indent=2
+        )
+
+    print(f"Sources v3 exportées : {source_output_path}")
 
 
-     
+
+    # 13. Export des chunks JSON
+    chunks_output_path = (
+        PROJECT_ROOT
+        / "data"
+        / "processed"
+        / "chunks.json"
+    )
+
+    chunks_output_path.parent.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    with open(
+        chunks_output_path,
+        "w",
+        encoding="utf-8"
+    ) as f:
+        json.dump(
+            chunks,
+            f,
+            ensure_ascii=False,
+            indent=2
+        )
+
+    print(f"Chunks exportés : {chunks_output_path}")
+
+    # 14. Vérifications
+    print("\n=== RÉSULTATS ===")
+    print("Pages :", len(pages_document))
+    print("Chunks :", len(chunks))
+    print("CLIP (nouvelles analyses) :", clip_calls)
+    print("DePlot (nouvelles analyses) :", deplot_calls)
+
+    print("\n=== APERÇU PAGE 16 ===")
+
+    if len(chunks) >= 16:
+        print(chunks[15]["page_content"][:1500])
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()
+
+
+
+
+
+
+
+
+

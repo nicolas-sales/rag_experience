@@ -201,6 +201,15 @@ if question:
                 api_key=st.session_state["openai_api_key"]
             )
 
+
+
+            print("\n=== DEBUG RAG ===")
+            print("Réponse :", result.get("answer", "")[:200])
+            print("Sources :", result.get("sources", []))
+
+
+
+
             answer = result["answer"]
             sources = result["sources"]
 

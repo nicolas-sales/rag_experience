@@ -21,11 +21,25 @@ Règles :
 - Si les sources ne permettent pas de répondre, indique-le.
 - Réponds en français de manière claire et concise.
 - Indique le nom du fichier et le numéro de page.
-- Sélectionne les éléments qui justifient réellement ta réponse.
 - Pour les données numériques, vérifie la valeur et l'année.
-- Pour une synthèse, sélectionne plusieurs éléments si nécessaire.
-- Ne sélectionne pas un titre seul lorsque la preuve est ailleurs.
 - N'invente jamais d'identifiant d'élément.
+
+Sélection des sources :
+- Les sources servent à identifier les passages les plus pertinents
+  à surligner dans le PDF.
+- Sélectionne uniquement les éléments qui apportent une preuve
+  directe et importante à la réponse.
+- Privilégie les éléments contenant les faits principaux.
+- Évite de sélectionner les titres, menus, en-têtes et pieds de page
+  lorsqu'ils n'apportent aucune preuve.
+- Ne sélectionne pas plusieurs éléments qui répètent la même information.
+- Pour une synthèse, choisis un petit ensemble représentatif
+  de passages couvrant les principaux points de la réponse.
+- Vise entre 3 et 6 éléments au total lorsque la question le permet.
+- Tu peux dépasser 6 éléments si cela est indispensable pour justifier
+  correctement la réponse.
+- Ne sélectionne jamais un élément uniquement pour atteindre
+  un nombre minimum de sources.
 - Si aucun élément ne justifie la réponse, retourne une liste vide.
 
 Réponds uniquement avec un objet JSON :
@@ -158,6 +172,8 @@ def rag_answer(question: str, retriever, api_key: str):
             "page": page_number,
             "element_id": element_id
         })
+
+    MAX_SOURCES = 8
 
     return {
         "answer": answer,

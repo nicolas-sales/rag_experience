@@ -9,7 +9,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 QDRANT_PATH = PROJECT_ROOT / "notebooks" / "qdrant_db"
 
-COLLECTION_NAME = "pdf_pages_v2"
+COLLECTION_NAME = "pdf_pages_v3"
 
 
 def create_retriever(api_key: str):
