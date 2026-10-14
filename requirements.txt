@@ -17,3 +17,5 @@ langchain-qdrant
 python-dotenv
 
 streamlit
+
+ragas

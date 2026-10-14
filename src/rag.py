@@ -35,12 +35,35 @@ Sélection des sources :
 - Ne sélectionne pas plusieurs éléments qui répètent la même information.
 - Pour une synthèse, choisis un petit ensemble représentatif
   de passages couvrant les principaux points de la réponse.
-- Vise entre 3 et 6 éléments au total lorsque la question le permet.
+- Pour une question factuelle simple, sélectionne uniquement
+  les 1 à 3 éléments nécessaires pour justifier la réponse.
+- Pour une synthèse, sélectionne un petit ensemble
+  représentatif des éléments pertinents.
 - Tu peux dépasser 6 éléments si cela est indispensable pour justifier
   correctement la réponse.
 - Ne sélectionne jamais un élément uniquement pour atteindre
   un nombre minimum de sources.
 - Si aucun élément ne justifie la réponse, retourne une liste vide.
+
+Lorsque plusieurs tableaux ou graphiques sont présents
+sur une même page :
+
+- Identifie d'abord le titre exact de l'indicateur demandé.
+- Utilise uniquement les valeurs associées à cet indicateur.
+- Ne mélange jamais les valeurs de graphiques différents,
+  même s'ils concernent la même année.
+- Vérifie que l'année et la valeur appartiennent à la même
+  série de données.
+- Si les données sont ambiguës, indique précisément
+  l'ambiguïté plutôt que de choisir une valeur arbitraire.
+- Distingue explicitement les indicateurs de flux
+  (ex. nouvelles missions sur une année)
+  des indicateurs de stock
+  (ex. missions actives sur une année).
+- Associe chaque valeur au titre du graphique,
+  à sa légende et à son année avant de répondre.
+- Si plusieurs valeurs sont possibles, ne choisis pas
+  celle d'un autre graphique pour compléter la réponse.
 
 Réponds uniquement avec un objet JSON :
 

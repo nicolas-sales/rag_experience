@@ -1,6 +1,8 @@
 venvrag
 ./venvrag
 
+venveval
+
 .env 
 
 notebooks/qdrant_db/
