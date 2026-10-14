@@ -38,18 +38,23 @@ def build_dataset():
             "references_page": [14]
         },
         {
+            "question": "Quelle est la mission de redirection ecologique de Eudonet?",
+            "reference": "Formation à l’écoconception numérique des parties prenantes du projet. Audit de l’existant. Rédaction d’un guide d’écoconception adapté au contexte d’Eudonet. Réalisation de l’Analyse de Cycle de Vie d’un service numérique. Définition et priorisation d’actions de transition",
+            "references_page": [16]
+        },
+        {
             "question": "Quelle est la mission de redirection ecologique de Decathlon?",
-            "reference": "19215",
+            "reference": "Participation à la démarche d’écoconception du catalogue de Décathlon. Au sein des équipes de Design : définition des leviers de réduction d’impacts des produits  « vélos », selon le gain environnemental, le coût et la faisabilité. Au sein des équipes de Gestion de la qualité de données : mise en place d’une gouvernance et définition de process pour maîtriser les données utiles au calcul de l’impact des produits",
             "references_page": [16]
         },
         {
             "question": "Comment limiter l'empreinte de nos prestations sur la mobilité Domicile-Travail?",
             "reference": "Proposer du télétravail dès que possible, sans altérer la qualité de nos prestations ou la confiance de nos clients. Encourager les collaborateurs à privilégier les mobilités durables grâce à des dispositifs particuliers (Forfait Mobilité Durable) ou une aide spécifique. Ex : prêt temporaire d’un vélo",
-            "references_page": [14]
+            "references_page": [17]
         },
         {
             "question": "A combien de km sont situés nos clients de nos agences en 2025?",
-            "reference": "moins de 80 km",
+            "reference": "Moins de 80 km",
             "references_page": [18]
         },
         {

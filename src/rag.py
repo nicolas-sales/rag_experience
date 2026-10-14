@@ -177,6 +177,15 @@ def rag_answer(question: str, retriever, api_key: str):
 
     return {
         "answer": answer,
-        "sources": verified_sources
+        "sources": verified_sources,
+        "retrieved_contexts": [
+            document.page_content
+            for document in retrieved_documents
+        ],
+        "retrieved_pages": [
+            int(document.metadata["page"])
+            for document in retrieved_documents
+            if document.metadata.get("page") is not None
+        ]
     }
         
