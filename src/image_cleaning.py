@@ -61,3 +61,24 @@ def find_duplicate_images(image_bank_path):
         ),
         "images": images
     }
+
+
+
+if __name__=="__main__":
+    import json
+    PROJECT_ROOT  = Path(__file__).resolve().parent.parent
+
+    IMAGE_BANK_PATH = PROJECT_ROOT / "image_bank" / "MEC 002_Blue Data 2_Lot 1_B4ALL_Réponse technique"
+
+    OUTPUT_PATH = PROJECT_ROOT / "data" / "processed" / "images_index.json"
+
+    results = find_duplicate_images(IMAGE_BANK_PATH)
+
+    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+    with open(OUTPUT_PATH, "w", encoding="utf-8") as file:
+        json.dump(results, file, ensure_ascii=False, indent=2)
+
+    print("Total images:", results["total_images"])
+    print("Unique images:", results["unique_images"])
+    print("Duplicate images:", results["duplicate_images"])

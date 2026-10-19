@@ -10,7 +10,7 @@ PDF_PATH = (
     PROJECT_ROOT
     / "data"
     / "raw"
-    / "Plan_stratégique_Impact.pdf"
+    / "MEC 002_Blue Data 2_Lot 1_B4ALL_Réponse technique.pdf"
 )
 
 STATIC_DIR = PROJECT_ROOT / "app" / "static"
