@@ -289,3 +289,79 @@ def export_pages_markdown(page_markdowns, output_path):
             file.write("\n\n---\n\n")
 
     print(f"Markdown exporté : {output_path}")
+
+
+
+from pathlib import Path
+
+
+def export_blocks_markdown(pages_document, output_path):
+
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with open(output_path, "w", encoding="utf-8") as file:
+
+        for page_data in pages_document:
+
+            page_number = page_data["page"]
+            file.write(f"# Page {page_number}\n\n")
+
+            for index, element in enumerate(
+                page_data["elements"], start=1
+            ):
+
+                element_type = element["type"]
+
+                if element_type == "text":
+                    block_type = "texte"
+                    treatment = "Extraction PyMuPDF"
+
+                elif element_type == "table":
+                    block_type = "tableau"
+                    treatment = "Extraction de tableau PyMuPDF"
+
+                elif element_type == "image":
+
+                    if element.get("is_chart", False):
+                        block_type = "graphe"
+                    else:
+                        block_type = "image"
+
+                    treatment = "Classification CLIP"
+
+                    if (
+                        element.get("deplot_valid", False)
+                        and element.get("deplot_parsed") is not None
+                    ):
+                        treatment += " + extraction DePlot"
+
+                else:
+                    block_type = element_type
+                    treatment = "Non renseigné"
+
+                file.write(f"## Bloc {index}\n\n")
+                file.write(f"- Type : {block_type}\n")
+                file.write(f"- Traitement : {treatment}\n")
+                file.write(
+                    f"- Position : {element.get('bbox')}\n"
+                )
+
+                if element_type == "image":
+                    file.write(
+                        f"- Catégorie CLIP : "
+                        f"{element.get('image_category', 'inconnue')}\n"
+                    )
+                    file.write(
+                        f"- DePlot valide : "
+                        f"{element.get('deplot_valid', False)}\n"
+                    )
+
+                file.write("\n### Contenu\n\n")
+
+                content = element_to_markdown(element)
+
+                file.write(content if content else "_Aucun contenu_")
+                file.write("\n\n---\n\n")
+
+    print(f"Markdown de diagnostic exporté : {output_path}")

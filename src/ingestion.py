@@ -4,7 +4,7 @@ import json
 
 from src.image_analysis import classify_images, run_deplot, finalize_deplot
 
-from src.markdown_converter import build_page_markdowns, build_chunks, export_pages_markdown
+from src.markdown_converter import build_page_markdowns, build_chunks, export_pages_markdown, export_blocks_markdown
 
 
 
@@ -337,7 +337,6 @@ def sort_page_elements(pages_document):
         )
 
 
-
 # --------------------------------------------------
 # Pipeline principal d'ingestion
 # --------------------------------------------------
@@ -421,7 +420,21 @@ def main():
         markdown_output_path
     )
 
-    # 12. Construction des chunks
+    # 12. Export Markdown par blocks
+
+    blocks_output_path = (
+        PROJECT_ROOT
+        / "data"
+        / "processed"
+        / "blocks_diagnostic.md"
+    )
+
+    export_blocks_markdown(
+        pages_document,
+        blocks_output_path
+    )
+
+    # 13. Construction des chunks
     chunks = build_chunks(
         pages_document=pages_document,
         page_markdowns=page_markdowns,
