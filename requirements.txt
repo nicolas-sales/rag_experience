@@ -19,3 +19,6 @@ python-dotenv
 streamlit
 
 ragas
+
+ImageHash
+Pillow

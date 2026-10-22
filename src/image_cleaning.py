@@ -68,7 +68,7 @@ if __name__=="__main__":
     import json
     PROJECT_ROOT  = Path(__file__).resolve().parent.parent
 
-    IMAGE_BANK_PATH = PROJECT_ROOT / "image_bank" / "MEC 002_Blue Data 2_Lot 1_B4ALL_Réponse technique"
+    IMAGE_BANK_PATH = PROJECT_ROOT / "image_bank" / "Plan_stratégique_Impact"
 
     OUTPUT_PATH = PROJECT_ROOT / "data" / "processed" / "images_index.json"
 

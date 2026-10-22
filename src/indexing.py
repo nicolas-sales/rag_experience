@@ -13,9 +13,9 @@ import json
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-QDRANT_PATH = PROJECT_ROOT / "notebooks" / "qdrant_db"
+QDRANT_PATH = PROJECT_ROOT / "data" / "qdrant_db"
 
-COLLECTION_NAME = "pdf_pages_v3"
+COLLECTION_NAME = "pdf_pages_plan"
 
 EMBEDDING_MODEL = "text-embedding-ada-002"
 EMBEDDING_SIZE = 1536
