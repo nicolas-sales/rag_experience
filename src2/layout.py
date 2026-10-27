@@ -2,26 +2,55 @@
 Mise en page : remettre les éléments d'une page dans l'ordre de lecture.
 
 Étapes :
-    1. extract_lines     : lignes de texte visibles, avec leur position
-       find_repeated_lines : menus / pieds de page répétés, à retirer
-    2. merge_same_row   : cellules d'un tableau et puces recollées sur une ligne
-    3. xy_cut            : découpage de la page en zones (ordre de lecture)
-    4. order_elements    : une zone de texte = un bloc ; listes et tableaux recollés
-    5. mark_headings     : les blocs écrits en grand sont des titres
+    1. extract_lines        : lignes de texte visibles, avec leur position
+    2. get_zones            : zones de chaque page détectées par le modèle de
+                              pymupdf4llm (titre, paragraphe, liste, image...)
+       find_repeated_headers: menus / pieds de page répétés, à retirer
+    3. merge_same_row       : cellules d'un tableau et puces recollées sur une ligne
+    4. group_lines_by_zone  : les lignes d'une même zone = un bloc
+       order_elements       : ordre de lecture (ce qui est sur une même image
+                              reste groupé) ; listes et tableaux recollés
+    5. xy_cut               : découpage de la page le long des espaces vides
 """
 
 import pymupdf
+import pymupdf4llm
 
 
 # --------------------------------------------------
 # 1. Lignes de texte visibles
 # --------------------------------------------------
 
+# PyMuPDF ajoute de lui-même un espace quand deux lettres sont un peu
+# écartées : les titres aux lettres espacées donnaient "Le m ot du CEO".
+# On lui demande de ne pas en ajouter (TEXT_INHIBIT_SPACES) et on décide
+# nous-mêmes : un espace si le trou entre deux lettres dépasse
+# 0,2 x la taille de la police.
+SPACE_RATIO = 0.2
+
+
+def join_chars(spans):
+
+    text = ""
+    previous = None
+
+    for span in spans:
+        for char in span["chars"]:
+            gap = char["bbox"][0] - previous["bbox"][2] if previous else 0
+            if gap > SPACE_RATIO * span["size"] and char["c"] != " ":
+                text += " "
+            text += char["c"]
+            previous = char
+
+    return text
+
+
 def extract_lines(page):
 
     lines = []
+    flags = pymupdf.TEXTFLAGS_RAWDICT | pymupdf.TEXT_INHIBIT_SPACES
 
-    for block in page.get_text("dict")["blocks"]:
+    for block in page.get_text("rawdict", flags=flags)["blocks"]:
 
         if block["type"] != 0:  # 0 = texte, 1 = image
             continue
@@ -29,18 +58,16 @@ def extract_lines(page):
         for line in block["lines"]:
 
             # alpha == 0 : texte invisible (zones de survol PowerPoint)
-            spans = [s for s in line["spans"] if s["alpha"] > 0 and s["text"].strip()]
+            spans = [
+                s for s in line["spans"]
+                if s["alpha"] > 0 and "".join(c["c"] for c in s["chars"]).strip()
+            ]
 
             if not spans:
                 continue
 
-            # On recolle les morceaux de la ligne. S'il y a un écart entre
-            # deux morceaux ("1" puis "Sensibiliser"), on ajoute un espace.
-            text = spans[0]["text"]
-            for previous, span in zip(spans, spans[1:]):
-                if span["bbox"][0] - previous["bbox"][2] > 2:
-                    text += " "
-                text += span["text"]
+            # On recolle les lettres de la ligne, avec nos espaces
+            text = join_chars(spans)
 
             # Position de la ligne = rectangle qui englobe ses morceaux
             bbox = pymupdf.Rect(spans[0]["bbox"])
@@ -58,8 +85,33 @@ def extract_lines(page):
 
 
 # --------------------------------------------------
-# 1 bis. Menus et pieds de page répétés sur chaque page
+# 2. Zones détectées par le modèle de pymupdf4llm
 # --------------------------------------------------
+# Le modèle (sur CPU) découpe chaque page en zones :
+# "title", "section-header", "text", "list-item", "picture",
+# "table", "page-header", "page-footer"...
+
+def get_zones(doc):
+
+    # Un seul appel pour tout le PDF ; on ne garde que les zones
+    chunks = pymupdf4llm.to_markdown(doc, page_chunks=True, use_ocr=False)
+
+    return [
+        [{"class": box["class"], "bbox": pymupdf.Rect(box["bbox"])} for box in chunk["page_boxes"]]
+        for chunk in chunks
+    ]
+
+
+def find_zone(line, zones):
+
+    # La plus petite zone qui contient le centre de la ligne (None si aucune)
+    rect = pymupdf.Rect(line["bbox"])
+    center = pymupdf.Point((rect.x0 + rect.x1) / 2, (rect.y0 + rect.y1) / 2)
+
+    containing = [zone for zone in zones if center in zone["bbox"]]
+
+    return min(containing, key=lambda z: z["bbox"].get_area()) if containing else None
+
 
 def is_in_margin(line, page):
     # Tout en haut (12 % de la hauteur) ou tout en bas (10 %) de la page
@@ -67,22 +119,37 @@ def is_in_margin(line, page):
     return line["bbox"][3] < 0.12 * height or line["bbox"][1] > 0.90 * height
 
 
-def find_repeated_lines(doc):
+def is_header_candidate(line, page, zones):
 
-    # Pour chaque texte placé en haut ou en bas : sur quelles pages il apparaît
+    # Peut-être un en-tête / pied de page : en marge, ou dans une zone
+    # "page-header" du modèle. Jamais un titre reconnu par le modèle,
+    # ni un texte de moins de 3 lettres (chiffres, puces).
+    zone = find_zone(line, zones)
+    zone_class = zone["class"] if zone else None
+
+    in_header_area = is_in_margin(line, page) or zone_class == "page-header"
+    is_title = zone_class in ("section-header", "title")
+    has_letters = sum(c.isalpha() for c in line["content"]) >= 3
+
+    return in_header_area and not is_title and has_letters
+
+
+def find_repeated_headers(doc, all_zones):
+
+    # Pour chaque texte en position d'en-tête : sur quelles pages il apparaît
     pages_per_text = {}
 
     for page in doc:
         for line in extract_lines(page):
-            if is_in_margin(line, page):
+            if is_header_candidate(line, page, all_zones[page.number]):
                 pages_per_text.setdefault(line["content"], set()).add(page.number)
 
-    # Répété sur au moins 3 pages : c'est un menu ou un pied de page
+    # Répété sur au moins 3 pages : c'est un menu, un bandeau ou un pied de page
     return {text for text, pages in pages_per_text.items() if len(pages) >= 3}
 
 
 # --------------------------------------------------
-# 2. Textes courts sur une même ligne -> une seule ligne
+# 3. Textes courts sur une même ligne -> une seule ligne
 # --------------------------------------------------
 # "Global", "693", "30 %"  ->  "Global | 693 | 30 %"
 # "•", "Bilan carbone..."  ->  "- Bilan carbone..."
@@ -125,7 +192,7 @@ def merge_same_row(lines):
 
 
 # --------------------------------------------------
-# 3. Ordre de lecture : on coupe la page le long du plus grand
+# 5. Ordre de lecture : on coupe la page le long du plus grand
 #    espace vide, puis on recommence dans chaque morceau
 # --------------------------------------------------
 
@@ -174,7 +241,7 @@ def xy_cut(elements):
 
 
 # --------------------------------------------------
-# 4. Une zone de texte -> un bloc
+# 4. Une zone du modèle -> un bloc
 # --------------------------------------------------
 
 def is_list_or_table(text):
@@ -206,42 +273,100 @@ def make_block(lines):
     }
 
 
-def order_elements(elements):
+def group_lines_by_zone(lines, zones):
 
-    if not elements:
-        return []
+    # Chaque ligne va dans sa zone
+    lines_per_zone = {id(zone): [] for zone in zones}
+    loose_lines = []
 
-    body_size = body_font_size(elements)
+    for line in lines:
+        zone = find_zone(line, zones)
+        if zone is None:
+            loose_lines.append(line)
+        else:
+            lines_per_zone[id(zone)].append(line)
+
+    # Les lignes d'une zone deviennent un bloc
+    blocks = []
+
+    for zone in zones:
+
+        zone_lines = lines_per_zone[id(zone)]
+
+        if not zone_lines:
+            continue
+
+        block = make_block(merge_same_row(zone_lines))
+
+        if zone["class"] == "list-item" and not block["content"].startswith("- "):
+            block["content"] = "- " + block["content"]
+
+        block["is_heading"] = zone["class"] in ("section-header", "title")
+
+        blocks.append(block)
+
+    # Lignes hors de toute zone : gardées telles quelles
+    return blocks + merge_same_row(loose_lines)
+
+
+def group_by_picture(elements, zones):
+
+    # Tout ce qui est posé sur une même zone "image" du modèle
+    # (titre du graphique, image, ligne "TOTAL : 52 78 87 99")
+    # devient un seul groupe : le XY-cut ne peut pas les séparer.
+    pictures = [zone for zone in zones if zone["class"] == "picture"]
+
+    members_per_picture = {}
+    others = []
+
+    for element in elements:
+        picture = find_zone(element, pictures)
+        if picture is None:
+            others.append(element)
+        else:
+            members_per_picture.setdefault(id(picture), []).append(element)
+
+    for members in members_per_picture.values():
+
+        bbox = pymupdf.Rect(members[0]["bbox"])
+        for member in members[1:]:
+            bbox |= member["bbox"]
+
+        others.append({"type": "group", "bbox": list(bbox), "members": members})
+
+    return others
+
+
+def reading_order(elements):
+
+    # Dans chaque morceau du XY-cut : de haut en bas, puis de gauche à droite
     ordered = []
 
     for zone in xy_cut(elements):
-
-        # Dans une zone : de haut en bas, puis de gauche à droite
-        zone = sorted(zone, key=lambda e: (e["bbox"][1], e["bbox"][0]))
-        text_lines = []
-
-        for element in zone:
-            if element["type"] == "text":
-                text_lines.append(element)
-            else:
-                # Une image ou un tableau : on ferme le bloc de texte en cours
-                if text_lines:
-                    ordered.append(make_block(text_lines))
-                    text_lines = []
-                ordered.append(element)
-
-        if text_lines:
-            ordered.append(make_block(text_lines))
-
-    ordered = merge_lists_and_tables(ordered)
-    mark_headings(ordered, body_size)
+        ordered += sorted(zone, key=lambda e: (e["bbox"][1], e["bbox"][0]))
 
     return ordered
 
 
+def order_elements(elements, zones):
+
+    if not elements:
+        return []
+
+    ordered = []
+
+    for element in reading_order(group_by_picture(elements, zones)):
+        if element["type"] == "group":
+            ordered += reading_order(element["members"])  # on rouvre le groupe
+        else:
+            ordered.append(element)
+
+    return merge_lists_and_tables(ordered)
+
+
 def merge_lists_and_tables(elements):
 
-    # Chaque puce et chaque ligne de tableau sort de xy_cut comme une zone
+    # Chaque puce et chaque ligne de tableau peut être une zone
     # à part. On recolle deux blocs qui se suivent s'ils sont l'un sous
     # l'autre (et pas côte à côte, pour ne pas mélanger deux colonnes).
     merged = []
@@ -266,36 +391,3 @@ def merge_lists_and_tables(elements):
 
     return merged
 
-
-# --------------------------------------------------
-# 5. Titres : texte court écrit nettement plus grand que le reste
-# --------------------------------------------------
-
-def body_font_size(elements):
-
-    # Taille du texte "normal" : celle qui couvre le plus de caractères
-    characters_per_size = {}
-
-    for element in elements:
-        if element["type"] == "text":
-            size = round(element["size"])
-            characters_per_size[size] = characters_per_size.get(size, 0) + len(element["content"])
-
-    return max(characters_per_size, key=characters_per_size.get, default=10)
-
-
-def mark_headings(elements, body_size):
-
-    for element in elements:
-
-        if element["type"] != "text":
-            continue
-
-        text = element["content"]
-
-        element["is_heading"] = (
-            element["size"] >= 1.3 * body_size
-            and len(text) <= 100
-            and not is_list_or_table(text)
-            and sum(c.isalpha() for c in text) >= 3  # pas un chiffre clé ("82,7")
-        )

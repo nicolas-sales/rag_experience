@@ -2,9 +2,9 @@ from pathlib import Path
 import pymupdf
 import json
 
-from src.image_analysis import classify_images, run_deplot, finalize_deplot
+from src2.image_analysis import classify_images, run_deplot, finalize_deplot
 
-from src2.layout import extract_lines, find_repeated_lines, is_in_margin, merge_same_row, order_elements
+from src2.layout import extract_lines, get_zones, find_repeated_headers, is_header_candidate, group_lines_by_zone, order_elements
 
 from src2.markdown_converter import build_page_markdowns, build_chunks, export_pages_markdown, export_blocks_markdown
 
@@ -57,7 +57,9 @@ def extract_tables(doc, pages_document):
 
     for page_index, page in enumerate(doc):
 
-        table_result = page.find_tables()
+        # use_layout=False : détection des tableaux comme avant,
+        # sans le modèle de pymupdf4llm (activé dès son import)
+        table_result = page.find_tables(use_layout=False)
 
         for table_index, table in enumerate(table_result.tables):
 
@@ -123,18 +125,26 @@ def remove_consecutive_duplicate_lines(text):
 # --------------------------------------------------
 # Extraction des lignes de texte
 # --------------------------------------------------
-# On extrait ligne par ligne (et non par bloc PyMuPDF) :
-# les lignes sont regroupées en blocs plus tard,
-# dans order_page_elements, selon leur zone sur la page.
+# On extrait ligne par ligne (et non par bloc PyMuPDF),
+# puis les lignes d'une même zone (détectée par le modèle
+# de pymupdf4llm) sont regroupées en un bloc.
 
 def extract_text(doc, pages_document):
 
     total_text_lines = 0
 
+    # Zones de chaque page (titre, paragraphe, liste, image...)
+    all_zones = get_zones(doc)
+
     # Menus et pieds de page répétés sur les pages
-    repeated_lines = find_repeated_lines(doc)
+    repeated_headers = find_repeated_headers(doc, all_zones)
 
     for page_index, page in enumerate(doc):
+
+        zones = all_zones[page_index]
+
+        # Gardées pour l'ordre de lecture (order_page_elements)
+        pages_document[page_index]["zones"] = zones
 
         table_elements = [
             element
@@ -146,7 +156,7 @@ def extract_text(doc, pages_document):
 
         for line in extract_lines(page):
 
-            if line["content"] in repeated_lines and is_in_margin(line, page):
+            if line["content"] in repeated_headers and is_header_candidate(line, page, zones):
                 continue
 
             text_rectangle = pymupdf.Rect(line["bbox"])
@@ -168,12 +178,12 @@ def extract_text(doc, pages_document):
 
             lines.append(line)
 
-        # Cellules de tableau sans bordures, menus, puces
-        lines = merge_same_row(lines)
-
-        pages_document[page_index]["elements"].extend(lines)
-
         total_text_lines += len(lines)
+
+        # Une zone = un bloc de texte
+        blocks = group_lines_by_zone(lines, zones)
+
+        pages_document[page_index]["elements"].extend(blocks)
 
     return total_text_lines
 
@@ -344,14 +354,14 @@ def create_image_bank(doc, pages_document, document_id):
 # --------------------------------------------------
 # Un simple tri (y0, x0) mélange les colonnes :
 # sur une page en cartes, les puces de 3 cartes différentes
-# se retrouvaient entrelacées. On découpe la page en zones (XY-cut),
-# puis les lignes de texte d'une même zone deviennent un seul bloc.
+# se retrouvaient entrelacées. On découpe la page en zones (XY-cut)
+# pour ranger les blocs, images et tableaux dans l'ordre de lecture.
 
 def order_page_elements(pages_document):
 
     for page in pages_document:
 
-        page["elements"] = order_elements(page["elements"])
+        page["elements"] = order_elements(page["elements"], page.pop("zones"))
 
 
 # --------------------------------------------------

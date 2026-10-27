@@ -49,7 +49,7 @@ def table_to_markdown(table_element):
 
 def text_to_markdown(text_element):
 
-    # Titre détecté dans layout.py (texte écrit nettement plus grand)
+    # Titre détecté dans layout.py (zone "titre" du modèle pymupdf4llm)
     if text_element.get("is_heading"):
         return "## " + text_element["content"].replace("\n", " ")
 
