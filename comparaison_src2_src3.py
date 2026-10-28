@@ -1,5 +1,5 @@
 """
-Comparaison src2 (DePlot seul) / src3 (OCR + positions + DePlot) / src3 sans DePlot (OCR seul).
+Comparaison src2 (DePlot) / src3 (OCR EasyOCR + positions, sans DePlot).
 
 Pour chaque question dont on connaît la réponse :
     - contexte = le markdown de la page (1 chunk par page, comme dans le RAG)
@@ -18,7 +18,6 @@ PROCESSED = PROJECT_ROOT / "data" / "processed"
 MARKDOWNS = {
     "src2": PROCESSED / "src2" / "pages_markdown.md",
     "src3": PROCESSED / "src3" / "pages_markdown.md",
-    "src3 sans DePlot": PROCESSED / "src3" / "pages_markdown_sans_deplot.md",
 }
 OUTPUT_PATH = PROCESSED / "comparaison_src2_src3.md"
 
@@ -45,31 +44,6 @@ Contexte :
 Question : {question}"""
 
 
-def write_markdown_without_deplot():
-    """Markdown de src3 sans les tableaux DePlot : il ne reste que l'OCR."""
-    # Bloc DePlot = la ligne "Valeurs estimées...", une ligne vide, puis
-    # son tableau. Le bloc s'arrête à la première ligne vide après le
-    # tableau (un tableau PyMuPDF peut suivre juste après, on le garde).
-    kept = []
-    in_deplot = False
-    in_table = False
-
-    for line in MARKDOWNS["src3"].read_text(encoding="utf-8").split("\n"):
-        if line.startswith("Valeurs estimées par DePlot"):
-            in_deplot, in_table = True, False
-        elif in_deplot and line.startswith("|"):
-            in_table = True
-        elif in_deplot and not line and not in_table:
-            pass                                   # ligne vide avant le tableau
-        elif in_deplot and not line:
-            in_deplot = False                      # fin du tableau DePlot
-        else:
-            in_deplot = False
-            kept.append(line)
-
-    MARKDOWNS["src3 sans DePlot"].write_text("\n".join(kept), encoding="utf-8")
-
-
 def get_page(markdown_path, page_number):
     markdown = markdown_path.read_text(encoding="utf-8")
     return markdown.split(f"# Page {page_number}\n")[1].split("\n---\n")[0]
@@ -84,7 +58,6 @@ def is_correct(answer, expected):
 def main():
     load_dotenv(PROJECT_ROOT / ".env")
     llm = ChatOpenAI(model="gpt-5-mini")
-    write_markdown_without_deplot()
 
     scores = {name: 0 for name in MARKDOWNS}
     summary = [
@@ -124,7 +97,7 @@ def main():
     total = len(TESTS) * RUNS
     summary.append("| | **Total** | | " + " | ".join(f"**{score}/{total}**" for score in scores.values()) + " |")
 
-    report = ["# Comparaison src2 / src3 / src3 sans DePlot\n", "## Résultats\n", "\n".join(summary), "\n## Réponses\n"] + details
+    report = ["# Comparaison src2 (DePlot) / src3 (OCR)\n", "## Résultats\n", "\n".join(summary), "\n## Réponses\n"] + details
     OUTPUT_PATH.write_text("\n".join(report), encoding="utf-8")
     print(f"\nFichier créé : {OUTPUT_PATH}")
 

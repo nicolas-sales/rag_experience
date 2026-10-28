@@ -11,3 +11,6 @@ notebooks/chroma_db/
 image_bank
 data
 
+__pycache__/
+
+CLAUDE.md
