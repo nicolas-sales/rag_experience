@@ -57,40 +57,6 @@ def text_to_markdown(text_element):
 
 
 # --------------------------------------------------
-# Conversion des graphiques DePlot
-# --------------------------------------------------
-
-def chart_to_markdown(image_element):
-
-    chart_data = image_element["deplot_parsed"]
-
-    title = chart_data["title"]
-    columns = chart_data["columns"]
-    rows = chart_data["rows"]
-
-    temporary_table = {
-        "columns": columns,
-        "rows": rows
-    }
-
-    chart_table_markdown = table_to_markdown(
-        temporary_table
-    )
-
-    # DePlot devine les valeurs à partir du dessin : on le signale au LLM
-    if title:
-        return (
-            f"Valeurs estimées par DePlot (moins fiables) : {title}\n\n"
-            f"{chart_table_markdown}"
-        )
-
-    return (
-        f"Valeurs estimées par DePlot (moins fiables) :\n\n"
-        f"{chart_table_markdown}"
-    )
-
-
-# --------------------------------------------------
 # Conversion des images
 # --------------------------------------------------
 
@@ -124,13 +90,6 @@ def image_to_markdown(image_element):
             "Texte lu dans le graphique (OCR) :\n"
             + image_element["ocr_positions"]
         )
-
-    if (
-        image_element.get("is_chart", False)
-        and image_element.get("deplot_valid", False)
-        and image_element.get("deplot_parsed") is not None
-    ):
-        parts.append(chart_to_markdown(image_element))
 
     return "\n\n".join(parts)
 
@@ -217,9 +176,9 @@ def build_chunks(pages_document, page_markdowns, document_id, pdf_path):
             )
         )
 
-        has_valid_chart = any(
+        has_chart_ocr = any(
             element["type"] == "image"
-            and element.get("deplot_valid", False)
+            and element.get("ocr_positions")
             for element in elements
         )
 
@@ -245,9 +204,6 @@ def build_chunks(pages_document, page_markdowns, document_id, pdf_path):
                     element.get("image_category", "image")
                 )
 
-                if element.get("deplot_valid", False):
-                    source_element["deplot_valid"] = True
-
             source_elements.append(source_element)
 
         chunk_id = (
@@ -269,7 +225,7 @@ def build_chunks(pages_document, page_markdowns, document_id, pdf_path):
                 "element_types": element_types,
                 "image_categories": image_categories,
                 "has_images": len(image_ids) > 0,
-                "has_valid_chart": has_valid_chart,
+                "has_chart_ocr": has_chart_ocr,
                 "image_ids": image_ids
             },
 
@@ -342,11 +298,8 @@ def export_blocks_markdown(pages_document, output_path):
 
                     treatment = "Classification CLIP"
 
-                    if (
-                        element.get("deplot_valid", False)
-                        and element.get("deplot_parsed") is not None
-                    ):
-                        treatment += " + extraction DePlot"
+                    if element.get("ocr_positions") or element.get("logo_name"):
+                        treatment += " + OCR EasyOCR"
 
                 else:
                     block_type = element_type
@@ -363,10 +316,6 @@ def export_blocks_markdown(pages_document, output_path):
                     file.write(
                         f"- Catégorie CLIP : "
                         f"{element.get('image_category', 'inconnue')}\n"
-                    )
-                    file.write(
-                        f"- DePlot valide : "
-                        f"{element.get('deplot_valid', False)}\n"
                     )
 
                 file.write("\n### Contenu\n\n")

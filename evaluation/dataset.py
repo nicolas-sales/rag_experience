@@ -58,7 +58,7 @@ def build_dataset():
             "reference": "52 nouvelles missions ODD.",
             "reference_pages": [14]
         },
-        {
+        {       
             "question": "Quel était le stock actif de missions ODD en 2022 ?",
             "reference": "60 missions ODD actives.",
             "reference_pages": [14]
@@ -74,13 +74,13 @@ def build_dataset():
             "reference_pages": [14]
         },
         {
-            "question": "Quelle mission de redirection écologique Davidson a-t-elle réalisée pour Decathlon ?",
-            "reference": "Davidson a participé à l'écoconception du catalogue de Decathlon, notamment à la définition des leviers de réduction des impacts environnementaux des vélos et à la gouvernance des données nécessaires au calcul de l'impact des produits.",
+            "question": "Quelle est la mission de redirection écologique de Framatome ?",
+            "reference": "Une adaptation à un scénario +4,5°C : accompagnement à la conception d'un plan d'adaptation au changement climatique, application de la méthodologie OCARA, collecte de données environnementales et techniques pour un site type, études de résilience actuelles et futures et identification des risques associés.",
             "reference_pages": [16]
         },
         {
-            "question": "Quelles prestations de redirection écologique Davidson a-t-elle réalisées pour Eudonet ?",
-            "reference": "Formation à l'écoconception numérique, audit de l'existant, rédaction d'un guide d'écoconception, analyse du cycle de vie d'un service numérique et définition d'actions de transition.",
+            "question": "Quelle est la mission de redirection écologique chez Decathlon ?",
+            "reference": "Davidson a participé à l'écoconception du catalogue de Decathlon, notamment à la définition des leviers de réduction des impacts environnementaux des vélos et à la gouvernance des données nécessaires au calcul de l'impact des produits.",
             "reference_pages": [16]
         },
         {
@@ -89,8 +89,8 @@ def build_dataset():
             "reference_pages": [17]
         },
         {
-            "question": "Quelle proportion des clients Davidson se trouvait à moins de 80 km des agences en 2025 ?",
-            "reference": "Plus de 80 % des clients étaient situés à moins de 80 km des agences en 2025.",
+            "question": "Quelle part des missions de Davidson est réalisée pour des clients situés à moins de 80 km de ses bureaux régionaux ?",
+            "reference": "Plus de 80 % des missions, pour un objectif d'au moins 75 %.",
             "reference_pages": [18]
         },
         {
@@ -116,12 +116,14 @@ def build_dataset():
         {
             "question": "Combien de salariés se sont engagés dans SoliDav en 2025 et combien d'heures ont été données ?",
             "reference": "283 salariés engagés et 1 782 heures données.",
-            "reference_pages": [36]
+            "reference_pages": [34, 36, 75, 80]
         },
         {
+            # Page 36 : les chiffres sont écrits sans leur libellé ;
+            # la phrase complète est aux pages 75 et 80
             "question": "Combien de missions et d'associations ont été concernées par SoliDav en 2025 ?",
             "reference": "563 missions et 74 associations.",
-            "reference_pages": [36]
+            "reference_pages": [36, 75, 80]
         },
         {
             "question": "Quel était le bilan carbone global de Davidson en 2025 dans le périmètre validé par SBTi ?",
@@ -152,6 +154,60 @@ def build_dataset():
             "question": "Quels sont les trois premiers axes des engagements Right Tech de Davidson ?",
             "reference": "Mesurer et piloter les impacts numériques ; réduire les externalités négatives par l'écoconception et la sobriété ; augmenter les externalités positives grâce aux contributions collectives et aux outils numériques à impact.",
             "reference_pages": [58]
+        },
+
+        # --- Réponses lisibles seulement dans une image (graphique, logo) ---
+        {
+            "question": "Quelles étaient les émissions des scopes 1 et 2 de Davidson en 2023 ?",
+            "reference": "936 tCO2e.",
+            "reference_pages": [45]
+        },
+        {
+            "question": "Quelles étaient les émissions du scope 3 de Davidson en 2024 ?",
+            "reference": "6 476 tCO2e.",
+            "reference_pages": [45]
+        },
+
+        # --- Mêmes informations, demandées avec les mots du PDF ---
+        # À comparer avec les questions ci-dessus : si celles-ci réussissent
+        # et les autres échouent, c'est la recherche Qdrant qui est en cause
+        {
+            "question": "Quels sont les trois piliers d'impact sur lesquels s'appliquent les quatre axes de la stratégie Impact ?",
+            "reference": "L'impact social, l'impact sociétal et l'impact environnemental.",
+            "reference_pages": [7]
+        },
+        {
+            "question": "Quel est le nombre global de femmes et d'hommes chez Davidson en 2025 ?",
+            "reference": "693 femmes et 1 633 hommes, soit 2 326 salariés au total.",
+            "reference_pages": [24]
+        },
+        {
+            "question": "Dans la trajectoire SBTi, quel est l'objectif de consommation d'énergie ?",
+            "reference": "100 % d'énergie renouvelable en 2030, comparé à 2022 (89 % initialement).",
+            "reference_pages": [45]
+        },
+        {
+            "question": "Dans la trajectoire SBTi, quel est l'objectif pour les émissions Scope 3 ?",
+            "reference": "-58,2 % en 2032, en relatif par rapport à la valeur ajoutée (tCO2e/M€VA), comparé à 2022.",
+            "reference_pages": [45]
+        },
+        {
+            "question": "Dans le graphique de la trajectoire SBTi, quelles sont les émissions Scopes 1 & 2 en 2023 ?",
+            "reference": "936 tCO2e.",
+            "reference_pages": [45]
+        },
+        {
+            "question": "Dans le graphique de la trajectoire SBTi, quelles sont les émissions Scope 3 en 2024 ?",
+            "reference": "6 476 tCO2e.",
+            "reference_pages": [45]
+        },
+
+        # --- Réponse absente du document : le RAG doit le dire ---
+        {
+            # "Networks" n'apparaît que dans une infographie, sans chiffre
+            "question": "Quelle part de l'activité de Davidson représente l'offre Networks ?",
+            "reference": "Cette information n'est pas indiquée dans le document.",
+            "reference_pages": [5]
         }
     ]
 

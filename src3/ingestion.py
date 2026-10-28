@@ -2,7 +2,7 @@ from pathlib import Path
 import pymupdf
 import json
 
-from src3.image_analysis import classify_images, run_deplot, finalize_deplot
+from src3.image_analysis import classify_images
 
 from src3.chart_ocr import run_chart_ocr
 
@@ -437,15 +437,8 @@ def main():
         image_bank
     )
 
-    # 8. Analyse DePlot
-    deplot_calls = run_deplot(
-        pages_document
-    )
-
-    # 9. Validation des résultats DePlot
-    finalize_deplot(pages_document)
-
-    # 9 bis. OCR des graphiques (chaque chiffre avec son année) et des logos
+    # 8. OCR des graphiques (chaque chiffre avec son année) et des logos
+    #    (pas de DePlot : il devine des valeurs qui ne sont pas écrites)
     with pymupdf.open(PDF_PATH) as doc:
         ocr_calls = run_chart_ocr(
             doc,
@@ -529,9 +522,6 @@ def main():
                 source_element["is_chart"] = element.get(
                     "is_chart", False
                 )
-                source_element["deplot_clean"] = element.get(
-                    "deplot_clean", ""
-                )
                 source_element["ocr_positions"] = element.get(
                     "ocr_positions", ""
                 )
@@ -597,7 +587,6 @@ def main():
     print("Pages :", len(pages_document))
     print("Chunks :", len(chunks))
     print("CLIP (nouvelles analyses) :", clip_calls)
-    print("DePlot (nouvelles analyses) :", deplot_calls)
     print("OCR (nouvelles analyses) :", ocr_calls)
 
     print("\n=== APERÇU PAGE 16 ===")

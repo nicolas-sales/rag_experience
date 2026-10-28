@@ -20,7 +20,6 @@ Règles :
 - Utilise uniquement les informations présentes dans les sources.
 - Si les sources ne permettent pas de répondre, indique-le.
 - Réponds en français de manière claire et concise.
-- Indique le nom du fichier et le numéro de page.
 - Pour les données numériques, vérifie la valeur et l'année.
 - N'invente jamais d'identifiant d'élément.
 
