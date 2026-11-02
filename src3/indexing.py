@@ -58,31 +58,30 @@ def create_vector_store(api_key: str):
     return vector_store
 
 
-def index_chunks(chunks, vector_store, total_pages):
+def check_one_chunk_per_page(chunks):
+    """
+    Vérifie que chaque PDF a exactement 1 chunk par page :
+    pages 1 à N, sans doublon ni trou.
+    """
+    pages_per_file = {}
 
-    pages = [
-        chunk["metadata"]["page"]
-        for chunk in chunks
-    ]
+    for chunk in chunks:
+        file_name = chunk["metadata"]["file_name"]
+        pages_per_file.setdefault(file_name, []).append(chunk["metadata"]["page"])
 
-    # Vérifier : un chunk par page
-    if len(chunks) != total_pages:
-        raise ValueError(
-            f"{total_pages} chunks attendus, "
-            f"{len(chunks)} reçus."
-        )
+    for file_name, pages in pages_per_file.items():
 
-    # Vérifier qu'aucune page n'est en double
-    if len(set(pages)) != len(pages):
-        raise ValueError(
-            "Certaines pages sont présentes plusieurs fois."
-        )
+        if sorted(pages) != list(range(1, len(pages) + 1)):
+            raise ValueError(
+                f"{file_name} : pages en double, manquantes ou invalides."
+            )
 
-    # Vérifier que toutes les pages sont présentes
-    if set(pages) != set(range(1, total_pages + 1)):
-        raise ValueError(
-            "Certaines pages sont manquantes ou invalides."
-        )
+        print(f"{file_name} : {len(pages)} pages")
+
+
+def index_chunks(chunks, vector_store):
+
+    check_one_chunk_per_page(chunks)
 
     # Éviter les indexations répétées
     existing_points = vector_store.client.count(
@@ -149,15 +148,12 @@ def main():
 
     print("Chunks chargés :", len(chunks))
 
-    total_pages = len(chunks)
-
     vector_store = create_vector_store(api_key)
 
     try:
         index_chunks(
             chunks=chunks,
-            vector_store=vector_store,
-            total_pages=total_pages
+            vector_store=vector_store
         )
     finally:
         vector_store.client.close()

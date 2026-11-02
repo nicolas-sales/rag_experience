@@ -22,6 +22,8 @@ Règles :
 - Réponds en français de manière claire et concise.
 - Pour les données numériques, vérifie la valeur et l'année.
 - N'invente jamais d'identifiant d'élément.
+- Les pages peuvent venir de plusieurs PDF : pour chaque source, recopie
+  exactement le file_name et la page de l'élément choisi.
 
 Sélection des sources :
 - Les sources servent à identifier les passages les plus pertinents
@@ -70,6 +72,7 @@ Réponds uniquement avec un objet JSON :
     "answer": "Réponse en français",
     "sources": [
         {
+            "file_name": "document.pdf",
             "page": 14,
             "element_id": 3
         }
@@ -102,7 +105,8 @@ def rag_answer(question: str, retriever, api_key: str):
     context_parts = []
     elements_parts = []
 
-    # Pour vérifier les identifiants retournés par GPT
+    # Pour vérifier les identifiants retournés par GPT :
+    # (fichier, page) -> ids des éléments
     valid_element_ids = {}
 
     for document in retrieved_documents:
@@ -121,9 +125,9 @@ def rag_answer(question: str, retriever, api_key: str):
         )
 
         # Éléments extraits de cette page
-        page_elements = get_page_elements(page_number)
+        page_elements = get_page_elements(file_name, page_number)
 
-        valid_element_ids[page_number] = {
+        valid_element_ids[(file_name, page_number)] = {
             element["element_id"]
             for element in page_elements
         }
@@ -174,16 +178,17 @@ def rag_answer(question: str, retriever, api_key: str):
             continue
 
         try:
+            file_name = str(source["file_name"])
             page_number = int(source["page"])
             element_id = int(source["element_id"])
 
         except (KeyError, TypeError, ValueError):
             continue
 
-        if element_id not in valid_element_ids.get(page_number, set()):
+        if element_id not in valid_element_ids.get((file_name, page_number), set()):
             continue
 
-        source_key = (page_number, element_id)
+        source_key = (file_name, page_number, element_id)
 
         if source_key in seen:
             continue
@@ -191,6 +196,7 @@ def rag_answer(question: str, retriever, api_key: str):
         seen.add(source_key)
 
         verified_sources.append({
+            "file_name": file_name,
             "page": page_number,
             "element_id": element_id
         })

@@ -25,7 +25,7 @@ st.set_page_config(
 )
 
 st.title("📄 Assistant RAG Davidson (src3 : OCR des graphiques et logos)")
-st.caption("Posez vos questions sur le document stratégique.")
+st.caption("Posez vos questions sur les documents de data/raw.")
 
 
 # --------------------------------------------------
@@ -129,11 +129,12 @@ def display_pdf_sources(source_links: list):
 
         pdf_url = source["url"]
         page_number = source["page"]
+        file_name = source.get("file_name", "")
 
         st.markdown(
             f'<a href="{pdf_url}" target="_blank" '
             f'rel="noopener noreferrer">'
-            f'📄 Voir la source — page {page_number} ↗'
+            f'📄 Voir la source — {file_name}, page {page_number} ↗'
             f'</a>',
             unsafe_allow_html=True
         )
@@ -216,40 +217,43 @@ if question:
             print("=== SOURCES IDENTIFIÉES ===")
             print(sources)
 
-            # 2. Regrouper les éléments par page
+            # 2. Regrouper les éléments par page (d'un même PDF)
             sources_by_page = {}
 
             for source in sources:
 
-                page_number = source["page"]
+                page_key = (source["file_name"], source["page"])
                 element_id = source["element_id"]
 
                 sources_by_page.setdefault(
-                    page_number, []
+                    page_key, []
                 ).append(element_id)
 
             # 3. Récupérer les bbox et créer les PDF annotés
             source_links = []
 
-            for page_number, element_ids in sources_by_page.items():
+            for (file_name, page_number), element_ids in sources_by_page.items():
 
                 bboxes = get_source_bboxes(
+                    file_name=file_name,
                     page_number=page_number,
                     element_ids=element_ids
                 )
 
-                print("Page source :", page_number)
+                print("Page source :", file_name, page_number)
                 print("BBOX sélectionnées :", bboxes)
 
                 if not bboxes:
                     continue
 
                 source_url = prepare_pdf_source(
+                    file_name=file_name,
                     page_number=page_number,
                     bboxes=bboxes
                 )
 
                 source_links.append({
+                    "file_name": file_name,
                     "page": page_number,
                     "url": source_url
                 })

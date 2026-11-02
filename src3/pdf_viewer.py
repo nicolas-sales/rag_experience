@@ -6,12 +6,8 @@ import pymupdf
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-PDF_PATH = (
-    PROJECT_ROOT
-    / "data"
-    / "raw"
-    / "Plan_stratégique_Impact.pdf"
-)
+# Dossier des PDF originaux (ceux ingérés par src3/ingestion.py)
+RAW_DIR = PROJECT_ROOT / "data" / "raw"
 
 STATIC_DIR = PROJECT_ROOT / "app" / "static"
 
@@ -22,15 +18,16 @@ STATIC_DIR.mkdir(
 
 
 def extract_pdf_page(
+    file_name: str,
     page_number: int,
     bboxes: list[list[float]] | None = None
 ) -> bytes:
     """
-    Extrait une page du PDF original et encadre
+    Extrait une page du PDF original (data/raw/<file_name>) et encadre
     tous les éléments indiqués par leurs bbox.
     """
 
-    with pymupdf.open(PDF_PATH) as source_pdf:
+    with pymupdf.open(RAW_DIR / file_name) as source_pdf:
 
         if not 1 <= page_number <= len(source_pdf):
             raise ValueError(
@@ -76,6 +73,7 @@ def extract_pdf_page(
 
 
 def prepare_pdf_source(
+    file_name: str,
     page_number: int,
     bboxes: list[list[float]] | None = None
 ) -> str:
@@ -92,6 +90,7 @@ def prepare_pdf_source(
     output_path = STATIC_DIR / filename
 
     pdf_bytes = extract_pdf_page(
+        file_name=file_name,
         page_number=page_number,
         bboxes=bboxes
     )

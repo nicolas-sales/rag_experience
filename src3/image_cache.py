@@ -1,5 +1,6 @@
 import hashlib
 import json
+import time
 from pathlib import Path
 
 # On ajoute donc un cache persistant pour CLIP, DePlot et l'OCR, afin de ne pas refaire les inférences à chaque lancement de src3/ingestion.py.
@@ -63,7 +64,16 @@ def save_image_cache(cache):
             indent=2
         )
 
-    temporary_path.replace(CACHE_PATH)
+    # Sous Windows, un autre programme (antivirus, indexation, éditeur)
+    # peut tenir le fichier ouvert un court instant : on réessaie.
+    for attempt in range(10):
+        try:
+            temporary_path.replace(CACHE_PATH)
+            return
+        except PermissionError:
+            if attempt == 9:
+                raise
+            time.sleep(0.5)
 
 
 def get_image_hash(storage_path):

@@ -6,28 +6,34 @@ SOURCE_ELEMENTS_PATH = PROJECT_ROOT / "data" / "processed" / "src3" / "source_el
 
 
 def load_source_elements():
+    """Charge source_elements_v3.json : {nom du fichier: {page: [éléments]}}."""
     with open(SOURCE_ELEMENTS_PATH, encoding="utf-8") as f:
         return json.load(f)
 
 
-
-def get_page_elements(page_number):
-
+def get_elements(file_name, page_number):
+    """Retourne les éléments d'une page d'un PDF (liste vide si inconnue)."""
     source_data = load_source_elements()
 
     # Les numéros de pages sont des chaînes dans le JSON
-    elements = source_data.get(str(page_number), [])
+    return source_data.get(file_name, {}).get(str(page_number), [])
 
+
+def get_page_elements(file_name, page_number):
+    """
+    Retourne les éléments d'une page qui ont du contenu, pour le LLM.
+
+    Chaque élément : {"element_id", "type", "content"}. L'element_id est
+    la position de l'élément dans la page ; il sert ensuite à retrouver
+    sa bbox (voir `get_source_bboxes`).
+    """
     page_elements = []
 
-    for element_id, element in enumerate(elements):
+    for element_id, element in enumerate(get_elements(file_name, page_number)):
 
         element_type = element.get("type", "")
 
-        if element_type == "text":
-            content = element.get("content", "")
-
-        elif element_type == "table":
+        if element_type in ("text", "table"):
             content = element.get("content", "")
 
         elif element_type == "image":
@@ -58,10 +64,9 @@ def get_page_elements(page_number):
     return page_elements
 
 
-
-def get_source_bboxes(page_number: int, element_ids: list[int]):
-    data = load_source_elements()
-    elements = data.get(str(page_number), [])
+def get_source_bboxes(file_name, page_number: int, element_ids: list[int]):
+    """Retourne les bbox des éléments demandés d'une page d'un PDF."""
+    elements = get_elements(file_name, page_number)
 
     bboxes = []
 
