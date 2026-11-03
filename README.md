@@ -1,10 +1,10 @@
 # RAG sur PDF
 
-Assistant qui répond à des questions sur un PDF et montre la page et la zone d'où vient la réponse.
+Assistant qui répond à des questions sur des PDF et montre la page et la zone d'où vient la réponse.
 
-Le PDF est converti en Markdown en gardant la position des textes, tableaux et images, avec
-**1 chunk par page**. Les pages sont indexées dans Qdrant, puis une app Streamlit pose les
-questions au LLM et surligne la source dans le PDF.
+Chaque PDF de `data/raw/` est converti en Markdown en gardant la position des textes, tableaux
+et images, avec **1 chunk par page**. Les pages sont indexées dans Qdrant, puis une app Streamlit
+pose les questions au LLM et surligne la source dans le PDF.
 
 Contraintes du projet : **CPU uniquement**, solution **généraliste** (pas de réglage pour un PDF
 précis) et basée sur **PyMuPDF**.
@@ -47,6 +47,9 @@ et le contenu des images à leur place.
 - Tout ce qui se trouve sur une même image (graphique annoté, infographie) reste groupé.
 
 **5. Images : CLIP + EasyOCR**
+- Les images trop petites (< 12 pt) ou présentes sur au moins un tiers des pages (logo,
+  bandeau, reconnues par leur `xref`) sont ignorées. Les autres sont enregistrées dans
+  `image_bank/<pdf>/page_<n>/`.
 - **CLIP** classe chaque image : graphique, infographie, logo, photo, schéma…
 - **EasyOCR** (CPU, 300 dpi) lit les graphiques et les logos :
   - chaque texte lu a sa position (bbox) ;
@@ -59,21 +62,25 @@ et le contenu des images à leur place.
 - Les résultats de CLIP et de l'OCR sont mis en cache : une nouvelle ingestion est rapide.
 
 **6. Sorties** (`data/processed/src3/`)
-- `chunks.json` : 1 chunk par page, indexé dans Qdrant ;
-- `pages_markdown.md` : toutes les pages en Markdown, pour relire ce que voit le LLM ;
-- `source_elements_v3.json` : les éléments de chaque page avec leur bbox, pour surligner la source ;
-- `blocks_diagnostic.md` : le détail de chaque bloc (type, position, traitement).
+- `chunks.json` : 1 chunk par page, pour tous les PDF, indexé dans Qdrant ;
+- `source_elements_v3.json` : les éléments de chaque page avec leur bbox, pour surligner la
+  source, sous la forme `{nom du fichier: {page: [éléments]}}` ;
+- `<nom du pdf>/pages_markdown.md` : les pages du PDF en Markdown, pour relire ce que voit le LLM ;
+- `<nom du pdf>/blocks_diagnostic.md` : le détail de chaque bloc (type, position, traitement).
 
 ## RAG
 
 - Embeddings `text-embedding-ada-002`, base Qdrant locale, 4 pages retrouvées par question.
 - Le LLM (`gpt-5-mini`) reçoit le Markdown des pages et la liste de leurs éléments.
-- Il renvoie la réponse et les éléments utilisés, que l'app surligne dans le PDF.
+- Il renvoie la réponse et les éléments utilisés (nom du fichier, page, numéro de l'élément),
+  que l'app surligne dans le bon PDF.
 
 ## Installation et utilisation
 
 Deux environnements Python, car RAGAS 0.2.15 n'est pas compatible avec les versions du pipeline :
-- `venvrag` : pipeline et app (`requirements.txt`) ;
+- `venvrag` : pipeline et app, Python 3.11. `requirements_venvrag.txt` contient les versions
+  exactes installées (`pip install -r requirements_venvrag.txt`) ; `requirements.txt` n'est
+  qu'une liste partielle ;
 - `venveval` : évaluation RAGAS (`evaluation/requirements.txt`).
 
 Mettre la clé OpenAI dans `.env` : `OPENAI_API_KEY=sk-...`
@@ -86,7 +93,10 @@ venvrag\python.exe -m src3.indexing      # Markdown -> Qdrant (data/qdrant_db_sr
 streamlit run app/app_src3.py            # application
 ```
 
-Le PDF traité est `data/raw/Plan_stratégique_Impact.pdf` (83 pages).
+Tous les PDF de `data/raw/` sont traités (Plan stratégique 83 pages, Castorama 41, MEC 002 33).
+Une page est identifiée par (nom du fichier, numéro de page). Pour réindexer, supprimer d'abord
+le dossier `data/qdrant_db_src3/collection/pdf_pages_src3` (`indexing.py` refuse une collection
+non vide).
 
 ## Évaluation avec RAGAS
 
@@ -122,6 +132,9 @@ retrouvées, la réponse du RAG et la réponse de référence.
 
 ### Résultats (`src3`, 33 questions communes)
 
+Ces résultats ont été obtenus quand seul le Plan stratégique était indexé. Les datasets ne portent
+que sur ce PDF ; avec les 3 PDF indexés, Qdrant peut aussi renvoyer des pages des autres documents.
+
 | Métrique | `dataset` | `dataset_mots_pdf` | `dataset_simple` |
 | --- | --- | --- | --- |
 | faithfulness | 0,80 | 0,85 | 0,89 |
@@ -149,3 +162,11 @@ Limites des métriques :
 ### Défauts connus de l'extraction
 - Quelques espaces restent dans les titres très espacés (« IMP ACT SOC IAL »).
 - Dans certains graphiques, l'association nombre ↔ année est fausse (page 25, page 45 avec deux axes).
+
+## Suite du projet
+
+- **Identifier les images par le hash de leur contenu** (sha256) plutôt que par leur `xref` ou
+  leur page, dans `find_repeated_images` et `create_image_bank` (`src3/ingestion.py`). Une image
+  serait alors stockée une seule fois, même si elle apparaît sur plusieurs pages ou dans plusieurs
+  PDF. Les caches CLIP et OCR utilisent déjà un hash.
+- Relancer l'évaluation RAGAS avec les 3 PDF indexés.

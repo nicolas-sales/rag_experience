@@ -2,7 +2,7 @@
 Ingestion des PDF de data/raw/ (version src3).
 
 Chaque PDF est transformé en Markdown, 1 chunk par page, en gardant la position
-des textes, tableaux et images. Étapes pour un PDF (voir `ingest_pdf`) :
+des textes, tableaux et images. Étapes pour un PDF :
 
     1. Tableaux  : détectés avec PyMuPDF (`find_tables`).
     2. Textes    : extraits ligne par ligne puis regroupés par zone
@@ -17,9 +17,6 @@ Sorties (dans data/processed/src3/) :
     - source_elements_v3.json : les éléments de chaque page de chaque PDF,
                                 {nom du fichier: {page: [éléments]}} (surlignage) ;
     - <nom du PDF>/pages_markdown.md et blocks_diagnostic.md : pour inspection.
-
-Lancement depuis la racine du projet :
-    venvrag\\python.exe -m src3.ingestion
 """
 
 import json
